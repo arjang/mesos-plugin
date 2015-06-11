@@ -78,7 +78,7 @@
   </pluginRepositories>
 
   <properties>
-    <mesos.version>0.21.1</mesos.version>
+    <mesos.version>0.22.1</mesos.version>
     <protobuf.version>2.5.0</protobuf.version>
   </properties>
 
