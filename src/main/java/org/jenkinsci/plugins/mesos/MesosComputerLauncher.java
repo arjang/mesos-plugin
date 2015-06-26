@@ -17,12 +17,11 @@ package org.jenkinsci.plugins.mesos;
 import hudson.model.TaskListener;
 import hudson.slaves.ComputerLauncher;
 import hudson.slaves.SlaveComputer;
+import org.jenkinsci.plugins.mesos.Mesos.JenkinsSlave;
 
 import java.io.PrintStream;
 import java.util.concurrent.CountDownLatch;
 import java.util.logging.Logger;
-
-import org.jenkinsci.plugins.mesos.Mesos.JenkinsSlave;
 
 public class MesosComputerLauncher extends ComputerLauncher {
 

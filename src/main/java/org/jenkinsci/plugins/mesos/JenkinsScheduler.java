@@ -73,47 +73,92 @@ public class JenkinsScheduler implements Scheduler {
     // This is important because MesosCloud.provision() starts a new framework whenever isRunning() is false.
     running = true;
     // Start the framework.
-    new Thread(new Runnable() {
-      @Override
-      public void run() {
-        String targetUser = mesosCloud.getSlavesUser();
-        String webUrl = Jenkins.getInstance().getRootUrl();
-        if (webUrl == null) webUrl = System.getenv("JENKINS_URL");
-        // Have Mesos fill in the current user.
-        FrameworkInfo framework = FrameworkInfo.newBuilder()
-          .setUser(targetUser == null ? "" : targetUser)
-          .setName(mesosCloud.getFrameworkName())
-          .setPrincipal(mesosCloud.getPrincipal())
-          .setCheckpoint(mesosCloud.isCheckpoint())
-          .setWebuiUrl(webUrl != null ? webUrl :  "")
-          .build();
+      Thread thread = new Thread(){
+          @Override
+          public void run() {
+              String targetUser = mesosCloud.getSlavesUser();
+              String webUrl = Jenkins.getInstance().getRootUrl();
+              if (webUrl == null) webUrl = System.getenv("JENKINS_URL");
+              // Have Mesos fill in the current user.
+              FrameworkInfo framework = FrameworkInfo.newBuilder()
+                      .setUser(targetUser == null ? "" : targetUser)
+                      .setName(mesosCloud.getFrameworkName())
+                      .setPrincipal(mesosCloud.getPrincipal())
+                      .setCheckpoint(mesosCloud.isCheckpoint())
+                      .setWebuiUrl(webUrl != null ? webUrl :  "")
+                      .build();
 
-        LOGGER.info("Initializing the Mesos driver with options"
-        + "\n" + "Framework Name: " + framework.getName()
-        + "\n" + "Principal: " + framework.getPrincipal()
-        + "\n" + "Checkpointing: " + framework.getCheckpoint()
-        );
+              LOGGER.info("Initializing the Mesos driver with options"
+                              + "\n" + "Framework Name: " + framework.getName()
+                              + "\n" + "Principal: " + framework.getPrincipal()
+                              + "\n" + "Checkpointing: " + framework.getCheckpoint()
+              );
 
-        if (StringUtils.isNotBlank(mesosCloud.getSecret())) {
-            Credential credential = Credential.newBuilder()
-              .setPrincipal(mesosCloud.getPrincipal())
-              .setSecret(ByteString.copyFromUtf8(mesosCloud.getSecret()))
-              .build();
+              if (StringUtils.isNotBlank(mesosCloud.getSecret())) {
+                  Credential credential = Credential.newBuilder()
+                          .setPrincipal(mesosCloud.getPrincipal())
+                          .setSecret(ByteString.copyFromUtf8(mesosCloud.getSecret()))
+                          .build();
 
-            LOGGER.info("Authenticating with Mesos master with principal " + credential.getPrincipal());
-            driver = new MesosSchedulerDriver(JenkinsScheduler.this, framework, mesosCloud.getMaster(), credential);
-        } else {
-            driver = new MesosSchedulerDriver(JenkinsScheduler.this, framework, mesosCloud.getMaster());
-        }
-        Status runStatus = driver.run();
-        if (runStatus != Status.DRIVER_STOPPED) {
-          LOGGER.severe("The Mesos driver was aborted! Status code: " + runStatus.getNumber());
-        }
+                  LOGGER.info("Authenticating with Mesos master with principal " + credential.getPrincipal());
+                  driver = new MesosSchedulerDriver(JenkinsScheduler.this, framework, mesosCloud.getMaster(), credential);
+              } else {
+                  driver = new MesosSchedulerDriver(JenkinsScheduler.this, framework, mesosCloud.getMaster());
+              }
+              Status runStatus = driver.run();
+              if (runStatus == Status.DRIVER_STOPPED) {
+                  LOGGER.severe("The Mesos driver is stopped! Status code: " + runStatus.getNumber());
+              }else {
+                  LOGGER.severe("The Mesos driver was aborted! Status code: " + runStatus);
+              }
+              driver = null;
+              running = false;
+          }
+      };
 
-        driver = null;
-        running = false;
-      }
-    }).start();
+      thread.start();
+
+//    new Thread(new Runnable() {
+//      @Override
+//      public void run() {
+//        String targetUser = mesosCloud.getSlavesUser();
+//        String webUrl = Jenkins.getInstance().getRootUrl();
+//        if (webUrl == null) webUrl = System.getenv("JENKINS_URL");
+//        // Have Mesos fill in the current user.
+//        FrameworkInfo framework = FrameworkInfo.newBuilder()
+//          .setUser(targetUser == null ? "" : targetUser)
+//          .setName(mesosCloud.getFrameworkName())
+//          .setPrincipal(mesosCloud.getPrincipal())
+//          .setCheckpoint(mesosCloud.isCheckpoint())
+//          .setWebuiUrl(webUrl != null ? webUrl :  "")
+//          .build();
+//
+//        LOGGER.info("Initializing the Mesos driver with options"
+//        + "\n" + "Framework Name: " + framework.getName()
+//        + "\n" + "Principal: " + framework.getPrincipal()
+//        + "\n" + "Checkpointing: " + framework.getCheckpoint()
+//        );
+//
+//        if (StringUtils.isNotBlank(mesosCloud.getSecret())) {
+//            Credential credential = Credential.newBuilder()
+//              .setPrincipal(mesosCloud.getPrincipal())
+//              .setSecret(ByteString.copyFromUtf8(mesosCloud.getSecret()))
+//              .build();
+//
+//            LOGGER.info("Authenticating with Mesos master with principal " + credential.getPrincipal());
+//            driver = new MesosSchedulerDriver(JenkinsScheduler.this, framework, mesosCloud.getMaster(), credential);
+//        } else {
+//            driver = new MesosSchedulerDriver(JenkinsScheduler.this, framework, mesosCloud.getMaster());
+//        }
+//        Status runStatus = driver.run();
+//        if (runStatus != Status.DRIVER_STOPPED) {
+//          LOGGER.severe("The Mesos driver was aborted! Status code: " + runStatus.getNumber());
+//        }
+//
+//        driver = null;
+//        running = false;
+//      }
+//    }).start();
   }
 
   public synchronized void stop() {
@@ -171,7 +216,9 @@ public class JenkinsScheduler implements Scheduler {
 
     if (results.containsKey(taskId)) {
       LOGGER.info("Killing mesos task " + taskId);
-      driver.killTask(taskId);
+        if(driver != null){
+            driver.killTask(taskId);
+        }
     } else {
         // This is handling the situation that a slave was provisioned but it never
         // got scheduled because of resource scarcity and jenkins later tries to remove
@@ -297,7 +344,7 @@ public class JenkinsScheduler implements Scheduler {
             && slaveAttributesMatch(offer, slaveAttributes)) {
       return true;
     } else {
-      String requestedPorts = StringUtils.join(request.request.slaveInfo.getContainerInfo().getPortMappings().toArray(), "/");
+      //String requestedPorts = StringUtils.join(request.request.slaveInfo.getContainerInfo().getPortMappings().toArray(), "/");
 
       LOGGER.info(
           "Offer not sufficient for slave request:\n" +
@@ -306,7 +353,7 @@ public class JenkinsScheduler implements Scheduler {
           "\nRequested for Jenkins slave:\n" +
           "  cpus:  " + requestedCpus + "\n" +
           "  mem:   " + requestedMem + "\n" +
-          "  ports: " + requestedPorts + "\n" +
+          //"  ports: " + requestedPorts + "\n" +
           "  attributes:  " + (slaveAttributes == null ? ""  : slaveAttributes.toString()));
       return false;
     }
@@ -560,16 +607,19 @@ public class JenkinsScheduler implements Scheduler {
       break;
     case TASK_RUNNING:
       result.result.running(result.slave);
+        LOGGER.info("TASK_RUNNING: "+taskId);
       break;
     case TASK_FINISHED:
       result.result.finished(result.slave);
       terminalState = true;
+        LOGGER.info("TASK_FINISHED: "+taskId);
       break;
     case TASK_FAILED:
     case TASK_KILLED:
     case TASK_LOST:
       result.result.failed(result.slave);
       terminalState = true;
+        LOGGER.info("TASK_FAILED: "+taskId);
       break;
     default:
       throw new IllegalStateException("Invalid State: " + status.getState());
