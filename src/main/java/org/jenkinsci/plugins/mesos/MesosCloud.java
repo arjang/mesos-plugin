@@ -17,39 +17,27 @@ package org.jenkinsci.plugins.mesos;
 import hudson.Extension;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
-import hudson.model.Computer;
-import hudson.model.Descriptor;
-import hudson.model.Hudson;
-import hudson.model.Label;
-import hudson.model.Node;
+import hudson.model.*;
 import hudson.slaves.Cloud;
 import hudson.slaves.NodeProvisioner.PlannedNode;
 import hudson.util.FormValidation;
-
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.servlet.ServletException;
-
 import jenkins.model.Jenkins;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
-
 import org.apache.commons.lang.StringUtils;
 import org.apache.mesos.MesosNativeLibrary;
 import org.apache.mesos.Protos.ContainerInfo.DockerInfo.Network;
-import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
+
+import javax.servlet.ServletException;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class MesosCloud extends Cloud {
   private String nativeLibraryPath;
@@ -72,6 +60,44 @@ public class MesosCloud extends Cloud {
   private static final Logger LOGGER = Logger.getLogger(MesosCloud.class.getName());
 
   private static volatile boolean nativeLibraryLoaded = false;
+
+
+    @Initializer(after = InitMilestone.PLUGINS_STARTED)
+    public static MesosCloud newInstance(){
+        MesosSlaveInfo slaveInfo = new MesosSlaveInfo(
+                "mesos",
+                "0.1",
+                "512",
+                "1",
+                "0.1",
+                "128",
+                "jenkins",
+                "3",
+                "",
+                "-Xms16m -XX:+UseConcMarkSweepGC -Djava.net.preferIPv4Stack=true",
+                "",
+                null,
+                null,
+                null
+        );
+        List<MesosSlaveInfo> slaveInfoList = new ArrayList<MesosSlaveInfo>();
+        slaveInfoList.add(slaveInfo);
+        MesosCloud mesosCloud = new MesosCloud(
+                "/usr/local/lib/libmesos.so",
+                "zk://192.168.33.10:2181/mesos",
+                "",
+                "Jenkins-scheduler",
+                "root",
+                "jenkins",
+                "",
+                slaveInfoList,
+                true,
+                true,
+                ""
+        );
+
+        return mesosCloud;
+    }
 
   /**
    * We want to start the Mesos scheduler as part of the initialization of Jenkins
@@ -110,7 +136,7 @@ public class MesosCloud extends Cloud {
     }
   }
 
-  @DataBoundConstructor
+  //@DataBoundConstructor
   public MesosCloud(
       String nativeLibraryPath,
       String master,
