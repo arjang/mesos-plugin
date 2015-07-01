@@ -1,6 +1,6 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
     <f:entry title="Mesos native library path" field="nativeLibraryPath">
-        <f:textbox field="nativeLibraryPath" default="/usr/local/lib/libmesos.so" clazz="required"/>
+        <f:textbox field="nativeLibraryPath" clazz="required"/>
     </f:entry>
 
     <f:entry title="${%Mesos Master [hostname:port]}" field="master">
@@ -16,38 +16,34 @@
     </f:entry>
 
     <f:entry title="${%Slave username}">
-        <f:textbox field="slavesUser" default="root"/>
+        <f:textbox field="slavesUser" default=""/>
     </f:entry>
 
     <f:entry title="${%Framework Principal}" field="principal">
-      <f:textbox field="principal" default="jenkins" />
+        <f:textbox field="principal" default="jenkins" />
     </f:entry>
 
     <f:entry title="${%Framework Secret}" field="secret" description="${%Specify secret to enable framework authentication}">
-      <f:textbox field="secret"/>
+        <f:textbox field="secret"/>
     </f:entry>
 
     <f:entry title="${%Jenkins URL }" field="jenkinsURL">
-      <f:textbox field="jenkinsURL"/>
+        <f:textbox field="jenkinsURL"/>
     </f:entry>
 
     <f:advanced>
         <f:entry title="${%Checkpointing}" description="${%Enable Mesos framework checkpointing?}">
-            <f:radio name="checkpoint" value="true" checked="true" id="checkpoint.true"/>
-            <!--checked="${instance.checkpoint == true}"-->
+            <f:radio name="checkpoint" value="true" checked="${instance.checkpoint == true}" id="checkpoint.true"/>
             <st:nbsp/>${%Yes}
-            <f:radio name="checkpoint" value="false" checked="$false" id="checkpoint.false"/>
-            <!--checked="${instance.checkpoint == false}"-->
+            <f:radio name="checkpoint" value="false" checked="${instance.checkpoint == false}" id="checkpoint.false"/>
             <st:nbsp/>${%No}
         </f:entry>
 
         <f:entry title="${%On-demand framework registration}" description="${%Enable to make this cloud register as a framework when builds need to be performed. And, disconnect otherwise.}">
-            <f:radio name="onDemandRegistration" value="true" checked="true" id="onDemandRegistration.true"/>
-            <!--checked="${instance.onDemandRegistration == true}"-->
-                <st:nbsp/>${%Yes}
-                    <f:radio name="onDemandRegistration" value="false" checked="false" id="onDemandRegistration.false"/>
-            <!--checked="${instance.onDemandRegistration == false}"-->
-                <st:nbsp/>${%No}
+            <f:radio name="onDemandRegistration" value="true" checked="${instance.onDemandRegistration == true}" id="onDemandRegistration.true"/>
+            <st:nbsp/>${%Yes}
+            <f:radio name="onDemandRegistration" value="false" checked="${instance.onDemandRegistration == false}" id="onDemandRegistration.false"/>
+            <st:nbsp/>${%No}
         </f:entry>
         <f:entry>
             <f:repeatable add="${%Add Slave Info}" var="slaveInfo" name="slaveInfos" items="${instance.slaveInfos}" noAddButton="false" minimum="1" >
@@ -55,6 +51,9 @@
                     <f:entry title="${%Label String}">
                         <f:textbox field="labelString" default="mesos" value="${slaveInfo.labelString}" />
                     </f:entry>
+
+                    <f:slave-mode name="mode" node="${slaveInfo}" />
+
                     <f:entry title="${%Jenkins Slave CPUs}">
                         <f:textbox field="slaveCpus" clazz="required" default="0.1" value="${slaveInfo.slaveCpus}" />
                     </f:entry>
@@ -82,8 +81,8 @@
                         <f:textbox field="remoteFSRoot" clazz="required" default="jenkins" value="${slaveInfo.remoteFSRoot}"/>
                     </f:entry>
 
-                    <f:entry title="${%Idle Termination Minutes}">
-                        <f:number field="idleTerminationMinutes" clazz="required positive-number" default="3" value="${slaveInfo.idleTerminationMinutes}"/>
+                    <f:entry title="${%Idle Termination Minutes}" field="idleTerminationMinutes">
+                        <f:number field="idleTerminationMinutes" clazz="required number" default="3" value="${slaveInfo.idleTerminationMinutes}"/>
                     </f:entry>
                     <f:entry title="${%Mesos Offer Selection Attributes}">
                         <f:textbox field="slaveAttributes" value="${slaveInfo.slaveAttributes}"/>
@@ -103,6 +102,9 @@
                                 <f:radioBlock name="type" title="${%Docker}" value="DOCKER" inline="true" checked="true">
                                     <f:entry title="${%Docker Image}" field="dockerImage" description="If using Docker, specify the docker image.">
                                         <f:textbox field="dockerImage" clazz="required" value="${slaveInfo.containerInfo.dockerImage}" default=""/>
+                                    </f:entry>
+                                    <f:entry title="${%Docker Privileged Mode}" description="This will start the image using Docker's privileged mode.">
+                                        <f:checkbox field="dockerPrivilegedMode" value="${slaveInfo.containerInfo.dockerPrivilegedMode}" checked="${slaveInfo.containerInfo.dockerPrivilegedMode}" />
                                     </f:entry>
                                 </f:radioBlock>
                             </f:entry>
@@ -164,7 +166,7 @@
                                     </fieldset>
                                 </f:repeatable>
                             </f:entry>
-                            
+
                             <f:entry title="${%Parameters}" field="parameters">
                                 <f:repeatable add="${%Add Parameter}" var="parameter" name="parameters" items="${slaveInfo.containerInfo.parameters}" noAddButton="false" minimum="0">
                                     <fieldset>
@@ -172,7 +174,7 @@
                                             <f:entry title="${%Parameter Key}">
                                                 <f:textbox field="key" clazz="required" default="" value="${parameter.key}" />
                                             </f:entry>
-                                            
+
                                             <f:entry title="${%Parameter Value}">
                                                 <f:textbox field="value" clazz="required" default="" value="${parameter.value}" />
                                             </f:entry>
@@ -229,12 +231,12 @@
 
                     <f:entry>
                         <div align="right" class="repeatable-delete show-if-only" style="margin-left: 1em;">
-                          <f:repeatableDeleteButton value="${%Delete Slave Info}" /><br/>
+                            <f:repeatableDeleteButton value="${%Delete Slave Info}" /><br/>
                         </div>
                     </f:entry>
                 </table>
-             </f:repeatable>
-       </f:entry>
+            </f:repeatable>
+        </f:entry>
     </f:advanced>
 
     <f:validateButton title="${%Test Connection}" progress="${%Testing...}" method="testConnection" with="master,nativeLibraryPath"/>
